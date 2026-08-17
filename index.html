@@ -59,6 +59,9 @@
       textarea { min-height: 105px; resize: vertical; line-height: 1.65; }
       input:focus, select:focus, textarea:focus { outline: 3px solid rgb(30 58 95 / 15%); border-color: var(--navy); }
       .hint { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .field-error { min-height: 18px; margin: 6px 0 0; color: var(--error); font-size: 13px; line-height: 1.4; }
+      input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--error); }
+      fieldset.has-error .checkbox-item { border-color: var(--error); }
 
       fieldset { margin: 0 0 23px; padding: 0; border: 0; }
       .checkbox-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -115,7 +118,7 @@
     <main class="form-container">
       <p class="required-note">الحقول المعلّمة بعلامة <span class="required">*</span> مطلوبة.</p>
 
-      <form id="inquiryForm">
+      <form id="inquiryForm" novalidate>
         <div class="form-group">
           <label for="customerFullName">Cust. Full Name <span class="required">*</span></label>
           <input id="customerFullName" type="text" name="customerFullName" autocomplete="name" required>
@@ -127,8 +130,8 @@
         </div>
 
         <div class="form-group">
-          <label for="mobile">Cust. Mobile1</label>
-          <input id="mobile" type="tel" name="mobile" inputmode="tel" autocomplete="tel" maxlength="20">
+          <label for="mobile">Cust. Mobile1 <span class="required">*</span></label>
+          <input id="mobile" type="tel" name="mobile" inputmode="numeric" autocomplete="tel" pattern="[0-9]{11}" minlength="11" maxlength="11" title="رقم الموبايل يجب أن يكون 11 رقمًا" required>
         </div>
 
         <div class="form-group">
@@ -261,6 +264,7 @@
           locationStatus.textContent = message;
           locationStatus.className = 'location-status error';
           retryLocation.hidden = false;
+          showFieldError('location', message);
           updateSubmitState();
         }
 
@@ -292,6 +296,7 @@
                 locationStatus.textContent = 'تم تحديد الموقع بدقة تقريبية ' + Math.round(currentLocation.accuracy) + ' متر.';
                 locationStatus.className = 'location-status success';
                 retryLocation.hidden = true;
+                showFieldError('location', '');
                 updateSubmitState();
                 resolve(currentLocation);
               },
@@ -316,12 +321,126 @@
           if (files.length > MAX_FILES) return 'الحد الأقصى هو 5 ملفات.';
           for (var i = 0; i < files.length; i += 1) {
             if (files[i].size > MAX_FILE_BYTES) return 'حجم الملف "' + files[i].name + '" أكبر من 5 ميجابايت.';
+            if (!/\.(jpe?g|png|heic|heif|pdf|docx?)$/i.test(files[i].name)) {
+              return 'نوع الملف "' + files[i].name + '" غير مسموح.';
+            }
           }
           return '';
         }
 
+        var fieldValidators = {
+          customerFullName: function () {
+            return document.getElementById('customerFullName').value.trim() ? '' : 'يرجى إدخال اسم العميل بالكامل.';
+          },
+          nationalId: function () {
+            var id = document.getElementById('nationalId').value;
+            if (!id) return 'يرجى إدخال الرقم القومي.';
+            return /^\d{14}$/.test(id) ? '' : 'الرقم القومي يجب أن يكون 14 رقمًا.';
+          },
+          mobile: function () {
+            var mobile = document.getElementById('mobile').value;
+            if (!mobile) return 'يرجى إدخال رقم موبايل العميل.';
+            return /^\d{11}$/.test(mobile) ? '' : 'رقم الموبايل يجب أن يكون 11 رقمًا.';
+          },
+          relativePhone: function () {
+            return document.getElementById('relativePhone').value.trim() ? '' : 'يرجى إدخال رقم تليفون أحد الأقارب.';
+          },
+          governorate: function () {
+            return document.getElementById('governorate').value ? '' : 'يرجى اختيار المحافظة.';
+          },
+          detailedAddress: function () {
+            return document.getElementById('detailedAddress').value.trim() ? '' : 'يرجى إدخال عنوان الاستعلام بالتفصيل.';
+          },
+          inquiryEmail: function () {
+            var email = document.getElementById('inquiryEmail').value.trim();
+            if (!email) return 'يرجى إدخال إيميل المستعلم.';
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : 'يرجى إدخال بريد إلكتروني صحيح.';
+          },
+          collectionPlace: function () {
+            return checkedValues('collectionPlace').length ? '' : 'يرجى اختيار مكان التحصيل.';
+          },
+          location: function () {
+            return currentLocation ? '' : 'يجب تحديد موقع الزيارة قبل الإرسال.';
+          },
+          documents: function () {
+            return validateFiles(Array.prototype.slice.call(document.getElementById('documents').files));
+          }
+        };
+
+        function controlsFor(name) {
+          return Array.prototype.slice.call(form.querySelectorAll('[name="' + name + '"]'));
+        }
+
+        function errorElementFor(name) {
+          var id = name + 'Error';
+          var error = document.getElementById(id);
+          if (error) return error;
+          var controls = controlsFor(name);
+          if (!controls.length) return null;
+          var container = controls[0].closest('.form-group, fieldset');
+          error = document.createElement('p');
+          error.id = id;
+          error.className = 'field-error';
+          error.setAttribute('role', 'alert');
+          error.setAttribute('aria-live', 'polite');
+          container.appendChild(error);
+          controls.forEach(function (control) { control.setAttribute('aria-describedby', id); });
+          return error;
+        }
+
+        function showFieldError(name, message) {
+          var controls = controlsFor(name);
+          var error = errorElementFor(name);
+          if (error) error.textContent = message || '';
+          controls.forEach(function (control) {
+            control.setAttribute('aria-invalid', message ? 'true' : 'false');
+          });
+          if (controls.length) {
+            var fieldset = controls[0].closest('fieldset');
+            if (fieldset) fieldset.classList.toggle('has-error', Boolean(message));
+          }
+        }
+
+        function validateField(name) {
+          var validator = fieldValidators[name];
+          if (!validator) return true;
+          var message = validator();
+          showFieldError(name, message);
+          return !message;
+        }
+
+        function validateAllFields() {
+          var firstInvalid = null;
+          Object.keys(fieldValidators).forEach(function (name) {
+            if (!validateField(name) && !firstInvalid) firstInvalid = name;
+          });
+          if (firstInvalid) {
+            var control = controlsFor(firstInvalid)[0];
+            if (control && control.type !== 'hidden') control.focus();
+            else retryLocation.focus();
+          }
+          return !firstInvalid;
+        }
+
+        Object.keys(fieldValidators).forEach(function (name) {
+          errorElementFor(name);
+          controlsFor(name).forEach(function (control) {
+            var eventName = control.type === 'checkbox' || control.type === 'file' || control.tagName === 'SELECT'
+              ? 'change'
+              : 'input';
+            control.addEventListener(eventName, function () { validateField(name); });
+            control.addEventListener('blur', function () { validateField(name); });
+          });
+        });
+
         document.getElementById('nationalId').addEventListener('input', function () {
           this.value = normalizeDigits(this.value).replace(/\D/g, '').slice(0, 14);
+          validateField('nationalId');
+        });
+
+        document.getElementById('mobile').addEventListener('input', function () {
+          this.value = normalizeDigits(this.value).replace(/\D/g, '').slice(0, 11);
+          validateField('mobile');
         });
 
         retryLocation.addEventListener('click', function () {
@@ -330,26 +449,12 @@
 
         form.addEventListener('submit', async function (event) {
           event.preventDefault();
-          if (isSubmitting || !form.reportValidity()) return;
+          if (isSubmitting || !validateAllFields()) return;
 
           var nationalId = normalizeDigits(document.getElementById('nationalId').value);
-          if (!/^\d{14}$/.test(nationalId)) {
-            alert('الرقم القومي يجب أن يكون 14 رقمًا.');
-            return;
-          }
-
+          var mobile = normalizeDigits(document.getElementById('mobile').value);
           var collectionPlaces = checkedValues('collectionPlace');
-          if (!collectionPlaces.length) {
-            alert('يرجى اختيار مكان التحصيل.');
-            return;
-          }
-
           var files = Array.prototype.slice.call(document.getElementById('documents').files);
-          var fileError = validateFiles(files);
-          if (fileError) {
-            alert(fileError);
-            return;
-          }
 
           isSubmitting = true;
           submitBtn.textContent = 'جارٍ تحديث الموقع...';
@@ -365,7 +470,7 @@
             var payload = new FormData();
             payload.append('customerFullName', document.getElementById('customerFullName').value.trim());
             payload.append('nationalId', nationalId);
-            payload.append('mobile', normalizeDigits(document.getElementById('mobile').value.trim()));
+            payload.append('mobile', mobile);
             payload.append('relativePhone', normalizeDigits(document.getElementById('relativePhone').value.trim()));
             payload.append('governorate', document.getElementById('governorate').value);
             payload.append('detailedAddress', document.getElementById('detailedAddress').value.trim());
@@ -380,10 +485,17 @@
 
             var response = await fetch(ENDPOINT, { method: 'POST', body: payload });
             var result = await response.json().catch(function () { return {}; });
-            if (!response.ok) throw new Error(result.message || 'حدث خطأ أثناء إرسال النموذج.');
+            if (!response.ok && result.field && fieldValidators[result.field]) {
+              showFieldError(result.field, result.message || 'القيمة المدخلة غير صحيحة.');
+              var invalidControl = controlsFor(result.field)[0];
+              if (invalidControl) invalidControl.focus();
+              return;
+            }
+            if (!response.ok) throw new Error(result.message || 'تعذّر تسجيل النموذج. يرجى المحاولة مرة أخرى.');
 
             alert('تم إرسال النموذج بنجاح!');
             form.reset();
+            Object.keys(fieldValidators).forEach(function (name) { showFieldError(name, ''); });
             currentLocation = null;
             locationField.value = '';
             await captureLocation().catch(function () {});

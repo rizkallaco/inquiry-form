@@ -19,7 +19,7 @@ Smartsheet API token.
 Captured questions:
 
 - Customer full name and 14-digit national ID (required)
-- Customer mobile (optional) and first-degree relative phone (required)
+- Customer mobile (required, exactly 11 digits) and first-degree relative phone (required)
 - Governorate and detailed inquiry address (required)
 - Inquiry type (optional, supports multiple choices)
 - Inquirer email (required)
