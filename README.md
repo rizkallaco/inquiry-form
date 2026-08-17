@@ -1,63 +1,64 @@
-# investigation-form — Collections Field-Investigation Form
+# inquiry-form — Field Inquiry Form
 
-**Status: ACTIVE.** Single-page Arabic (RTL) form — "نموذج التحصيل" — used by Rizkalla
-collections field agents to log customer/guarantor visits. The entire app is one static
-`index.html` (vanilla HTML/JS, no build step, no dependencies).
+Arabic RTL form used by Rizkalla field inquiry agents. It is a static, dependency-free
+site (`index.html`) intended for GitHub Pages.
 
-## What it captures / where it goes
+## Submission flow
 
-Form fields (all required): visit type (Buyer/Guarantor/Father/…), collector name
-(fixed dropdown of 8 agents), **card number — exactly 14 digits** (numeric-only input
-enforced in JS), status (Temporary/Successful/Failed/Regular Client/Struggling Client),
-comment, address.
+The form mirrors Smartsheet form **3009578999819** and writes to the
+**InquiryDataActive** sheet (`1847861919567748`) through the Firebase HTTPS function:
 
-On submit it POSTs JSON to the Firebase Cloud Function:
-
-```
-https://us-central1-rizpay-abb7d.cloudfunctions.net/collectionTicketSubmit
+```text
+https://us-central1-rizpay-abb7d.cloudfunctions.net/inquiryTicketSubmit
 ```
 
-(project `rizpay-abb7d`; the function's source lives elsewhere, not in this repo).
-It originally submitted to a Make.com webhook and was migrated to this function.
+The function source is in the sibling `customer-installments-portal` repository at
+`functions/src/services/inquiryTicket.service.js`. The browser never receives the
+Smartsheet API token.
 
-## Geolocation is enforced
+Captured questions:
 
-- On page load the browser requests high-accuracy GPS; the **submit button stays
-  disabled until coordinates are captured** (hidden `location` field, format
-  `"lng,lat"` — longitude first).
-- No location permission = no submission (client-side hard block). Agents must allow
-  location; the page must therefore be served over **HTTPS** (or localhost), since
-  browsers block geolocation on plain HTTP.
-- After a successful submit the form resets and re-fetches location.
+- Customer full name and 14-digit national ID (required)
+- Customer mobile (optional) and first-degree relative phone (required)
+- Governorate and detailed inquiry address (required)
+- Inquiry type (optional, supports multiple choices)
+- Inquirer email (required)
+- Additional data, inquiry data, and family data (optional)
+- Collection place (required, supports multiple choices)
+- Visit location (required and captured from device GPS)
+- Documents (required; up to 5 files, 5 MB each)
 
-## Run / deploy
+The backend sets the hidden Smartsheet `Type` value to `مستعلم`, writes the Cairo
+inquiry date, creates the row, and uploads documents to that row sequentially.
 
-- Local test: just open `index.html` (geolocation works on `file://`/localhost in most
-  browsers) or serve statically.
-- Production: static hosting — the exact serving location is not recorded in this repo;
-  document it here once confirmed (candidates: Firebase Hosting on rizpay-abb7d).
+## Location enforcement
 
-No env vars, no secrets, no credentials anywhere in this project.
+- The page requests high-accuracy browser geolocation on load.
+- The submit button remains disabled until location is available.
+- Location is captured again immediately before every submission so an old page-load
+  coordinate is never used.
+- The backend validates coordinate ranges and capture freshness, then stores a Google
+  Maps URL in the Smartsheet `موقع الزيارة` column.
+- The site must run on HTTPS (or localhost) because browsers block geolocation on
+  insecure origins.
 
-## Git — own repo, do not use the parent workspace
+## Run locally
 
-This folder is its **own GitHub repo**: `https://github.com/rizkallaco/investigation-form.git`
-(only tracked file: `index.html`). Commit/push here directly — never through any parent
-workspace repo.
+Serve the folder rather than opening the file directly so browser behavior matches
+production:
 
-## Gotchas
+```bash
+python3 -m http.server 5500
+```
 
-- The 14-digit "card number" (رقم البطاقة) is the customer card/national-style ID used
-  to match the customer downstream — validation is `pattern="[0-9]{14}"` plus a JS
-  regex check; changing it breaks matching in the backend flow.
-- Collector names are hardcoded in the dropdown — staff changes require editing
-  `index.html` and redeploying.
-- Backend contract: JSON body keys `visitType`, `collectorName`, `cardNumber`,
-  `status`, `comment`, `address`, `location` — keep in sync with
-  `collectionTicketSubmit`.
+Then open `http://127.0.0.1:5500` and allow location access.
 
-## Sibling projects (new names)
+## Repository
 
-- `branch-callcentre-form` — the other agent-facing form (installments) posting to a
-  cloud function on the same Firebase project.
-- `riz-sms-service` — collections SMS side of the same collections workflow.
+This folder is its own repository:
+
+```text
+https://github.com/rizkallaco/inquiry-form.git
+```
+
+Do not commit it through the parent workspace repository.
