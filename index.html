@@ -198,6 +198,7 @@
               <option value="mohamedali0101341@gmail.con">mohamedali0101341@gmail.con</option>
               <option value="shnoudaes@gmail.com">shnoudaes@gmail.com</option>
               <option value="tameremilsss@gmail.com">Tamer Emil — tameremilsss@gmail.com</option>
+              <option value="elbobkkk@gmail.com">ابانوب عبد الملاك — elbobkkk@gmail.com</option>
               <option value="safwet81@gmail.com">ابانوب صفوت — safwet81@gmail.com</option>
               <option value="ahmedibrahim44613@gmail.com">احمد ابراهيم — ahmedibrahim44613@gmail.com</option>
               <option value="zamalekz877@gmail.com">اسلام محسن — zamalekz877@gmail.com</option>
@@ -225,6 +226,7 @@
               <option value="m.sherif3799@gmail.com">محمود شريف الدين — m.sherif3799@gmail.com</option>
               <option value="mohy.nahal@gmail.com">محي احمد — mohy.nahal@gmail.com</option>
               <option value="moresmorcos@gmail.com">مرقص موريس — moresmorcos@gmail.com</option>
+              <option value="mohabeldaly81@gmail.com">مهاب رضا — mohabeldaly81@gmail.com</option>
               <option value="micheal.sadek47@gmail.com">ميشيل صادق — micheal.sadek47@gmail.com</option>
               <option value="eidmina666@gmail.com">مينا عيد جراد — eidmina666@gmail.com</option>
               <option value="nmahdy73@gmail.com">نشات مهدى — nmahdy73@gmail.com</option>
@@ -285,7 +287,7 @@
         <div class="form-group">
           <label for="documents">رفع المستندات <span class="required">*</span></label>
           <input id="documents" type="file" name="documents" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf,.doc,.docx" multiple required>
-          <p class="hint">حتى 5 ملفات، وبحد أقصى 5 ميجابايت للملف (صور أو PDF أو Word).</p>
+          <p class="hint">حتى 15 ملفًا، وبحد أقصى 5 ميجابايت للملف و25 ميجابايت إجمالًا (صور أو PDF أو Word).</p>
         </div>
 
         <button type="submit" class="submit-btn" id="submitBtn" disabled>إرسال</button>
@@ -297,8 +299,9 @@
         'use strict';
 
         var ENDPOINT = 'https://us-central1-rizpay-abb7d.cloudfunctions.net/inquiryTicketSubmit';
-        var MAX_FILES = 5;
+        var MAX_FILES = 15;
         var MAX_FILE_BYTES = 5 * 1024 * 1024;
+        var MAX_TOTAL_FILE_BYTES = 25 * 1024 * 1024;
         var form = document.getElementById('inquiryForm');
         var submitBtn = document.getElementById('submitBtn');
         var locationField = document.getElementById('locationField');
@@ -377,13 +380,16 @@
 
         function validateFiles(files) {
           if (!files.length) return 'يرجى رفع مستند واحد على الأقل.';
-          if (files.length > MAX_FILES) return 'الحد الأقصى هو 5 ملفات.';
+          if (files.length > MAX_FILES) return 'الحد الأقصى هو 15 ملفًا.';
+          var totalFileBytes = 0;
           for (var i = 0; i < files.length; i += 1) {
+            totalFileBytes += files[i].size;
             if (files[i].size > MAX_FILE_BYTES) return 'حجم الملف "' + files[i].name + '" أكبر من 5 ميجابايت.';
             if (!/\.(jpe?g|png|heic|heif|pdf|docx?)$/i.test(files[i].name)) {
               return 'نوع الملف "' + files[i].name + '" غير مسموح.';
             }
           }
+          if (totalFileBytes > MAX_TOTAL_FILE_BYTES) return 'إجمالي حجم الملفات أكبر من 25 ميجابايت.';
           return '';
         }
 

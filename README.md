@@ -26,7 +26,7 @@ Captured questions:
 - Additional data, inquiry data, and family data (optional)
 - Collection place (required, supports multiple choices)
 - Visit location (required and captured from device GPS)
-- Documents (required; up to 5 files, 5 MB each)
+- Documents (required; up to 15 files, 5 MB each and 25 MB total)
 
 The backend sets the hidden Smartsheet `Type` value to `مستعلم`, writes the Cairo
 inquiry date, creates the row, and uploads documents to that row sequentially.
